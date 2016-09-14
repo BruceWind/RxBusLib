@@ -20,19 +20,27 @@ public class MainActivity extends AppCompatActivity {
         RxBus.getInstance().register(filer,(s) -> Log.d("callTestRxBus","is MainThread:"+(Looper.myLooper()==Looper.getMainLooper())) );
 
 
-        getWindow().getDecorView().postDelayed(
-                () -> RxBus.getInstance().sendBroadCast(filer, Observable.just(",now  is reciver")),
-                4000 );
+//        getWindow().getDecorView().postDelayed(
+//                () -> RxBus.getInstance().sendBroadCast(filer, Observable.just(",now  is reciver")),
+//                4000 );
+
+        Observable obs=Observable.just(",now  is new thread");
+
 
         new Thread(){
             @Override
             public void run() {
                 super.run();
                 //代码不会执行 因为被unRegster了
-                RxBus.getInstance().sendBroadOnUI(filer, Observable.just(",now  is new thread"));
+                RxBus.getInstance().sendBroadOnUI(filer,obs);
                 RxBus.getInstance().unRegister(filer);
             }
         }.start();
+
+
+        getWindow().getDecorView().postDelayed(() ->
+                Log.d("on send over,isUnsubscribed",obs.subscribe().isUnsubscribed()+"")
+        ,1000);
 
     }
 }

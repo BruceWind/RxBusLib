@@ -1,12 +1,16 @@
 package rxbusdemo.wei.rxbus;
 
 import android.text.TextUtils;
+import android.util.Log;
 import android.util.SparseArray;
 import rx.Observable;
 import rx.Scheduler;
+import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action1;
+import rx.observers.SafeSubscriber;
 import rx.schedulers.Schedulers;
+import rx.subscriptions.CompositeSubscription;
 
 /**
  * Created by wei on 16-9-10.
@@ -19,10 +23,12 @@ public class RxBus {
 
     //use SparseArray,because is high performance
     SparseArray<Action1> mSparseAction;
+    CompositeSubscription mCompositeSubscription;
 
     private RxBus() {
 
         mSparseAction = new SparseArray<>();
+        mCompositeSubscription=new CompositeSubscription();
     }
 
 
@@ -58,7 +64,7 @@ public class RxBus {
 
     /**
      * 解绑
-     * @param filter
+     * @param action1
      */
     public void unRegister(Action1 action1) {
 
@@ -84,8 +90,11 @@ public class RxBus {
         if (TextUtils.isEmpty(filter) || observable == null)
             return;
 
-        if (mSparseAction.indexOfKey(filter.hashCode()) > -1) {
+        if (mSparseAction.indexOfKey(filter.hashCode()) > -1) {//设计的 就像  广播一样 发送出来 如果没有人接受 就丢弃了
+
             observable.subscribe(mSparseAction.get(filter.hashCode()));
+
+            Log.d("on send ,isUnsubscribed",observable.subscribe().isUnsubscribed()+"");
         }
     }
 
