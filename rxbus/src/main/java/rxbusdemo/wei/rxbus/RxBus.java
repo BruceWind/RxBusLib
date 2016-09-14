@@ -10,12 +10,14 @@ import rx.schedulers.Schedulers;
 
 /**
  * Created by wei on 16-9-10.
+ *
+ *
  */
 public class RxBus {
 
     private static RxBus instance;
 
-    //use SparseArray,
+    //use SparseArray,because is high performance
     SparseArray<Action1> mSparseAction;
 
     private RxBus() {
