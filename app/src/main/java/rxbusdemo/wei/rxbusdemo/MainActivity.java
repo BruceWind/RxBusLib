@@ -4,8 +4,8 @@ import android.os.Looper;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import rxbusdemo.wei.rxbus.RxBus;
-import rxbusdemo.wei.rxbus.component.OnEventMainThread;
+import com.androidyuan.rxbus.RxBus;
+import com.androidyuan.rxbus.component.OnEventMainThread;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -23,9 +23,13 @@ public class MainActivity extends AppCompatActivity {
 
         new Thread( ()->{
 
-            RxBus.getInstance().post(filer, "scream");
+            RxBus.getInstance().post(filer, "scream1");
+            RxBus.getInstance().post(filer, "scream2");
 
-            RxBus.getInstance().unRegister(filer);
+            RxBus.getInstance().unRegister(filer);// stop code run
+            RxBus.getInstance().post(filer, "scream3");
+
+
 
         }).start();
 

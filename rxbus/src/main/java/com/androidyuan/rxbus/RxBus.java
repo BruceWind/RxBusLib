@@ -1,4 +1,4 @@
-package rxbusdemo.wei.rxbus;
+package com.androidyuan.rxbus;
 
 import android.text.TextUtils;
 import android.util.Log;
@@ -6,7 +6,7 @@ import android.util.SparseArray;
 import rx.Observable;
 import rx.Subscription;
 import rx.subscriptions.CompositeSubscription;
-import rxbusdemo.wei.rxbus.component.OnEvent;
+import com.androidyuan.rxbus.component.OnEvent;
 
 /**
  * Created by wei on 16-9-10.

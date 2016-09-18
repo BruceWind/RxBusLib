@@ -1,4 +1,4 @@
-package rxbusdemo.wei.rxbus.component;
+package com.androidyuan.rxbus.component;
 
 /**
  * Created by wei on 16/9/19.

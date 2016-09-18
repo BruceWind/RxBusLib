@@ -1,4 +1,4 @@
-package rxbusdemo.wei.rxbus.component;
+package com.androidyuan.rxbus.component;
 
 import rx.functions.Action1;
 

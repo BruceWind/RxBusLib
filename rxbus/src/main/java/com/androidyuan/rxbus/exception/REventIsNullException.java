@@ -1,4 +1,4 @@
-package rxbusdemo.wei.rxbus.exception;
+package com.androidyuan.rxbus.exception;
 
 /**
  * Created by wei on 16/9/19.

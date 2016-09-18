@@ -1,10 +1,10 @@
-package rxbusdemo.wei.rxbus.component;
+package com.androidyuan.rxbus.component;
 
 import rx.Observable;
 import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
-import rxbusdemo.wei.rxbus.exception.REventIsNullException;
+import com.androidyuan.rxbus.exception.REventIsNullException;
 
 /**
  * Created by wei on 16/9/19.
