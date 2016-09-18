@@ -4,13 +4,11 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseArray;
 import rx.Observable;
-import rx.Scheduler;
-import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action1;
-import rx.observers.SafeSubscriber;
 import rx.schedulers.Schedulers;
 import rx.subscriptions.CompositeSubscription;
+import rxbusdemo.wei.rxbus.component.REvent;
 
 /**
  * Created by wei on 16-9-10.
@@ -41,10 +39,10 @@ public class RxBus {
     }
 
 
-    public void register(String filter, Action1 action1) {
+    public void register(String filter, REvent event) {
 
-        if (!TextUtils.isEmpty(filter) && action1 != null) {
-            mSparseAction.put(filter.hashCode(), action1);
+        if (!TextUtils.isEmpty(filter) && event != null) {
+            mSparseAction.put(filter.hashCode(), event);
         }
     }
 
@@ -85,7 +83,7 @@ public class RxBus {
      * @param filter
      * @param observable
      */
-    public void sendBroadCast(String filter, Observable observable) {
+    public void sendEvent(String filter, Observable observable) {
 
         if (TextUtils.isEmpty(filter) || observable == null)
             return;
@@ -100,46 +98,46 @@ public class RxBus {
 
 
     /**
-     * 会在IO线程执行的 sendBroadCast方法
+     * 会在IO线程执行的 sendEvent方法
      *
      * @param filter
      * @param observable
      */
-    public void sendBroadOnIO(String filter, Observable observable) {
+    public void sendEventOnIO(String filter, Observable observable) {
 
         if (TextUtils.isEmpty(filter) || observable == null)
             return;
 
-        sendBroadCast(filter, observable.observeOn(Schedulers.io()));
+        sendEvent(filter, observable.observeOn(Schedulers.io()));
     }
 
     /**
-     * 会在IO线程执行的 sendBroadCast方法
+     * 会在IO线程执行的 sendEvent方法
      *
      * @param filter
      * @param observable
      */
-    public void sendBroadOnUI(String filter, Observable observable) {
+    public void sendEventOnUI(String filter, Observable observable) {
 
         if (TextUtils.isEmpty(filter) || observable == null)
             return;
 
-        sendBroadCast(filter, observable.observeOn(AndroidSchedulers.mainThread()));
+        sendEvent(filter, observable.observeOn(AndroidSchedulers.mainThread()));
     }
 
 
     /**
-     * 会在新线程执行的 sendBroadCast方法
+     * 会在新线程执行的 sendEvent方法
      *
      * @param filter
      * @param observable
      */
-    public void sendBroadOnNewThread(String filter, Observable observable) {
+    public void sendEventOnNewThread(String filter, Observable observable) {
 
         if (TextUtils.isEmpty(filter) || observable == null)
             return;
 
-        sendBroadCast(filter, observable.observeOn(Schedulers.newThread()));
+        sendEvent(filter, observable.observeOn(Schedulers.newThread()));
     }
 
 }
