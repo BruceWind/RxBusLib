@@ -1,11 +1,17 @@
 package rxbusdemo.wei.rxbusdemo;
 
+import static android.content.ContentValues.TAG;
+
 import android.os.Looper;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import com.androidyuan.rxbus.RxBus;
 import com.androidyuan.rxbus.component.OnEventMainThread;
+import com.androidyuan.rxbus.component.Subscribe;
+import com.androidyuan.rxbus.component.ThreadMode;
+
+import rxbusdemo.wei.model.DriverEvent;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -17,21 +23,25 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        RxBus.getInstance().register(filer, new OnEventMainThread((o) ->
-                Log.d("onEvent=" + o, "is MainThread:" + (Looper.myLooper() == Looper.getMainLooper())))
-        );
+        RxBus.getInstance().register(this);
 
         new Thread( ()->{
 
-            RxBus.getInstance().post(filer, "scream1");
-            RxBus.getInstance().post(filer, "scream2");
-
-            RxBus.getInstance().unRegister(filer);// stop code run
-            RxBus.getInstance().post(filer, "scream3");
-
-
+            RxBus.getInstance().post(new DriverEvent("scream1"));
 
         }).start();
 
+    }
+
+
+    @Subscribe(threadMode = ThreadMode.BACKGROUND, sticky = true)
+    public void handleEvent(DriverEvent event) {
+        Log.d(TAG, event.info);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        RxBus.getInstance().unRegister(this);
     }
 }

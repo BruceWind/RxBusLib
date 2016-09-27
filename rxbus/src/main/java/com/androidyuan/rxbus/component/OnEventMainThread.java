@@ -11,8 +11,8 @@ public class OnEventMainThread extends OnEvent {
     }
 
     @Override
-    protected int getThreadMode() {
+    protected ThreadMode getThreadMode() {
 
-        return BusThreadModel.THREAD_MAINTHREAD;
+        return ThreadMode.MAIN;
     }
 }

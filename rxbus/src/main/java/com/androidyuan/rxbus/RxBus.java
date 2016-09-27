@@ -1,12 +1,26 @@
 package com.androidyuan.rxbus;
 
-import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseArray;
 import rx.Observable;
 import rx.Subscription;
 import rx.subscriptions.CompositeSubscription;
+
 import com.androidyuan.rxbus.component.OnEvent;
+import com.androidyuan.rxbus.component.Subscribe;
+import com.androidyuan.rxbus.component.SubscriberMethod;
+import  com.androidyuan.rxbus.component.SubscriberMethodFinder;
+import com.androidyuan.rxbus.component.ThreadMode;
+import com.androidyuan.rxbus.exception.BusException;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Created by wei on 16-9-10.
@@ -22,85 +36,166 @@ import com.androidyuan.rxbus.component.OnEvent;
  */
 public class RxBus {
 
-    private static RxBus instance;
+    static RxBus instance;
+
+
+
+    private final SubscriberMethodFinder subscriberMethodFinder;
+
+    private static final int BRIDGE = 0x40;
+    private static final int SYNTHETIC = 0x1000;
+    private static final int MODIFIERS_IGNORE = Modifier.ABSTRACT | Modifier.STATIC | BRIDGE | SYNTHETIC;
+
 
     //use SparseArray,because is high performance
-    SparseArray<OnEvent> mSparseArrOnEvent;
-    CompositeSubscription mCompositeSubscription;
+    SparseArray<List<Object>> mSparseArrOnEvent;
 
-    private RxBus() {
+    RxBus(EventBusBuilder builder) {
 
         mSparseArrOnEvent = new SparseArray<>();
-        mCompositeSubscription = new CompositeSubscription();
+        subscriberMethodFinder = new SubscriberMethodFinder(builder.subscriberInfoIndexes,
+                builder.strictMethodVerification);
     }
 
 
     public static RxBus getInstance() {
 
         if (instance == null) {
-            instance = new RxBus();
+            instance = new EventBusBuilder().build();
         }
         return instance;
     }
 
 
-    public void register(String filter, OnEvent event) {
+    public void register(final Object subscriber) {
 
-        if (!TextUtils.isEmpty(filter) && event != null) {
-            mSparseArrOnEvent.put(filter.hashCode(), event);
+        if (subscriber==null)
+            return;
+
+        Method[] methods=getMethods(subscriber);
+
+        for (Method method : methods) {
+            int modifiers = method.getModifiers();
+            if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
+                Class<?>[] parameterTypes = method.getParameterTypes();
+                if (parameterTypes.length == 1) {//判断参数 的个数
+                    Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
+                    if (subscribeAnnotation != null) {
+                        Class<?> eventType = parameterTypes[0];
+                        String key=eventType.getName();
+                        ThreadMode threadMode = subscribeAnnotation.threadMode();
+                        putObject(key,subscriber);
+                    }
+                } else if (method.isAnnotationPresent(Subscribe.class)) {
+                    String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+                    throw new BusException("@Subscribe method " + methodName +
+                            "must have exactly 1 parameter but has " + parameterTypes.length);
+                }
+            } else if (method.isAnnotationPresent(Subscribe.class)) {
+                String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+                throw new BusException(methodName +
+                        " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
+            }
+        }
+
+    }
+
+    private Method[] getMethods(final Object subscriber)
+    {
+
+        if (subscriber==null)
+            return null;
+
+        Class<?> subscriberClass = subscriber.getClass();
+
+        Method[] methods;
+        try {
+            // This is faster than getMethods, especially when subscribers are fat classes like Activities
+            return subscriberClass.getDeclaredMethods();
+        } catch (Throwable th) {
+            // Workaround for java.lang.NoClassDefFoundError, see https://github.com/greenrobot/EventBus/issues/149
+            return subscriberClass.getMethods();
+        }
+    }
+
+    public void putObject(String key,Object object)
+    {
+        synchronized (mSparseArrOnEvent) {
+            List<Object> list = new ArrayList<>();
+            if (mSparseArrOnEvent.indexOfKey(key.hashCode()) > -1) {
+                list = mSparseArrOnEvent.get(key.hashCode());
+            }
+
+
+            if (!list.contains(object)) {
+                list.add(object);
+            }
+        }
+    }
+
+    public void removeObject(Object object)
+    {
+        synchronized (mSparseArrOnEvent) {
+            int len = mSparseArrOnEvent.size();
+
+            for (int index = 0; index < len; index++) {
+                List<Object> list = mSparseArrOnEvent.get(mSparseArrOnEvent.keyAt(index));
+                if (list.contains(object)) {
+                    list.remove(object);
+                }
+            }
         }
     }
 
     /**
      * 解绑
      *
-     * @param filter
+     * @param obj
      */
-    public void unRegister(String filter) {
+    public void unRegister(Object obj) {
 
-        if (TextUtils.isEmpty(filter))
+        if (obj==null)
             return;
 
-        if (mSparseArrOnEvent.indexOfKey(filter.hashCode()) > -1) {
-            mSparseArrOnEvent.remove(filter.hashCode());
-        }
+
     }
 
-    /**
-     * 解绑
-     *
-     * @param onEv
-     */
-    public void unRegister(OnEvent onEv) {
-
-        if (onEv == null)
-            return;
-
-        int index = mSparseArrOnEvent.indexOfValue(onEv);
-        if (index > -1) {
-            mSparseArrOnEvent.remove(index);
-        }
-    }
 
 
     /**
      * 不带线程切换 功能
      * action的触发会在发送的observable所在线程线程执行
      *
-     * @param filter
-     * @param obj
+     * @param event
      */
-    public void post(String filter, Object obj) {
+    public void post(Object event) {
 
-        if (TextUtils.isEmpty(filter) || obj == null)
+        if ( event == null)
             return;
+        String filter=event.getClass().getName();
 
         if (mSparseArrOnEvent.indexOfKey(filter.hashCode()) > -1) {//设计的 就像  广播一样 发送出来 如果没有人接受 就丢弃了
 
-            OnEvent onEv = mSparseArrOnEvent.get(filter.hashCode());
-            Subscription sbus = onEv.event(Observable.just(obj));
 
-            Log.d("on send ,isUnsubscribed", sbus.isUnsubscribed() + "");
+            Method[] methods=getMethods(event);
+
+            for (Method method : methods) {
+                int modifiers = method.getModifiers();
+                if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
+                    Class<?>[] parameterTypes = method.getParameterTypes();
+                    if (parameterTypes.length == 1) {//判断参数 的个数
+                        Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
+                        if (subscribeAnnotation != null) {
+                            Class<?> eventType = parameterTypes[0];
+                            String key=eventType.getName();
+                            ThreadMode threadMode = subscribeAnnotation.threadMode();
+
+
+                        }
+                    }
+                }
+            }
+
         }
     }
 

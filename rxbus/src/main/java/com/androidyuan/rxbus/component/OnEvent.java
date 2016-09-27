@@ -2,7 +2,6 @@ package com.androidyuan.rxbus.component;
 
 import rx.Observable;
 import rx.Subscription;
-import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
 import com.androidyuan.rxbus.exception.REventIsNullException;
 
@@ -23,9 +22,9 @@ public class OnEvent {
      *
      * @return 发送的线程
      */
-    protected int getThreadMode() {
+    protected ThreadMode getThreadMode() {
 
-        return BusThreadModel.THREAD_IMMEDIATE;
+        return ThreadMode.BACKGROUND;
     }
 
     public Subscription event(Observable obs) {
@@ -34,18 +33,19 @@ public class OnEvent {
             throw new REventIsNullException();
 
         switch (getThreadMode()) {
-            case BusThreadModel.THREAD_ASYNC: {
+            case BACKGROUND: {
                 return obs.observeOn(Schedulers.newThread()).subscribe(mEvent);
             }
-            case BusThreadModel.THREAD_IO: {
+            case IO: {
                 return obs.observeOn(Schedulers.io()).subscribe(mEvent);
             }
-            case BusThreadModel.THREAD_MAINTHREAD: {
-                return obs.observeOn(AndroidSchedulers.mainThread()).subscribe(mEvent);
-            }
-            case BusThreadModel.THREAD_COMPUTION: {
+//            case MAIN: {
+//                return obs.observeOn(AndroidSchedulers.mainThread()).subscribe(mEvent);
+//            }
+            case ASYNC: {
                 return obs.observeOn(Schedulers.computation()).subscribe(mEvent);
             }
+            case POSTING:
             default:
                 return obs.subscribe(mEvent);
         }
