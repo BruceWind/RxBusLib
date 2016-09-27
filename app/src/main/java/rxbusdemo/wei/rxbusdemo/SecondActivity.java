@@ -2,18 +2,18 @@ package rxbusdemo.wei.rxbusdemo;
 
 import static android.content.ContentValues.TAG;
 
-import android.content.Intent;
+import android.os.Bundle;
 import android.os.Looper;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
+
 import com.androidyuan.rxbus.RxBus;
 import com.androidyuan.rxbus.component.Subscribe;
 import com.androidyuan.rxbus.component.ThreadMode;
 
 import rxbusdemo.wei.model.DriverEvent;
 
-public class MainActivity extends AppCompatActivity {
+public class SecondActivity extends AppCompatActivity {
 
     private final String filer="testfilter";
 
@@ -25,14 +25,27 @@ public class MainActivity extends AppCompatActivity {
 
         RxBus.getInstance().register(this);
 
-        startActivity(new Intent(this,SecondActivity.class));
+        new Thread( ()->{
 
+
+           // RxBus.getInstance().post(new DriverEvent("scream1"));
+        }).start();
+
+        //RxBus.getInstance().postRx(new DriverEvent("scream1"));
+        RxBus.getInstance().postRx("scream2");
+        RxBus.getInstance().postRx("scream3");
     }
 
 
     @Subscribe(threadMode = ThreadMode.BACKGROUND, sticky = true)
-    public void handleEvent(DriverEvent event) {
-        Log.d(TAG, "event info = "+event.info+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
+    public void handleEvent(String event) {
+        Log.d(TAG, "RXJAVA event info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
+    }
+
+
+    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
+    public void handle(String event) {
+        Log.d(TAG, "RXJAVA event info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
     }
 
     @Override

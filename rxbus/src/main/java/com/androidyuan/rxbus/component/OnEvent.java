@@ -2,19 +2,21 @@ package com.androidyuan.rxbus.component;
 
 import rx.Observable;
 import rx.Subscription;
+import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
 import com.androidyuan.rxbus.exception.REventIsNullException;
 
 /**
  * Created by wei on 16/9/19.
+ * 这个类主要用于线程切换
  */
 public class OnEvent {
 
-    REvent mEvent;
+    RxSubscriberMethod mRxSubscriberMethod;
 
-    public OnEvent(REvent onEv) {
+    public OnEvent(RxSubscriberMethod onEv) {
 
-        mEvent = onEv;
+        mRxSubscriberMethod = onEv;
     }
 
     /**
@@ -24,30 +26,38 @@ public class OnEvent {
      */
     protected ThreadMode getThreadMode() {
 
-        return ThreadMode.BACKGROUND;
+        return mRxSubscriberMethod.threadMode;
     }
 
-    public Subscription event(Observable obs) {
+    public Subscription event() {
+        Observable obs=Observable.just(mRxSubscriberMethod.event);
 
-        if (mEvent == null)//抛出异常
+        if (mRxSubscriberMethod == null)//抛出异常
             throw new REventIsNullException();
+
+        REvent rEvent=new REvent() {
+            @Override
+            public void call(Object o) {
+                mRxSubscriberMethod.invokeSubscriber();
+            }
+        };
 
         switch (getThreadMode()) {
             case BACKGROUND: {
-                return obs.observeOn(Schedulers.newThread()).subscribe(mEvent);
+                return obs.observeOn(Schedulers.newThread()).subscribe(rEvent);
             }
             case IO: {
-                return obs.observeOn(Schedulers.io()).subscribe(mEvent);
+                return obs.observeOn(Schedulers.io()).subscribe(rEvent);
             }
-//            case MAIN: {
-//                return obs.observeOn(AndroidSchedulers.mainThread()).subscribe(mEvent);
-//            }
+            case MAIN: {
+                return obs.observeOn(AndroidSchedulers.mainThread()).subscribe(rEvent);
+            }
             case ASYNC: {
-                return obs.observeOn(Schedulers.computation()).subscribe(mEvent);
+                return obs.observeOn(Schedulers.computation()).subscribe(rEvent);
             }
             case POSTING:
             default:
-                return obs.subscribe(mEvent);
+                return obs.subscribe(rEvent);
         }
     }
 
