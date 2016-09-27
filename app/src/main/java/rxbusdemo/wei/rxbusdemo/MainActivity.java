@@ -27,16 +27,16 @@ public class MainActivity extends AppCompatActivity {
 
         new Thread( ()->{
 
-            RxBus.getInstance().post(new DriverEvent("scream1"));
 
         }).start();
 
+        RxBus.getInstance().post(new DriverEvent("scream1"));
     }
 
 
     @Subscribe(threadMode = ThreadMode.BACKGROUND, sticky = true)
     public void handleEvent(DriverEvent event) {
-        Log.d(TAG, event.info);
+        Log.d(TAG, event.info+" is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
     }
 
     @Override

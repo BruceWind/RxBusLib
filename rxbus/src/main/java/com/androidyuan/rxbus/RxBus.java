@@ -4,6 +4,7 @@ import android.util.Log;
 import android.util.SparseArray;
 import rx.Observable;
 import rx.Subscription;
+import rx.functions.Func1;
 import rx.subscriptions.CompositeSubscription;
 
 import com.androidyuan.rxbus.component.OnEvent;
@@ -13,6 +14,7 @@ import  com.androidyuan.rxbus.component.SubscriberMethodFinder;
 import com.androidyuan.rxbus.component.ThreadMode;
 import com.androidyuan.rxbus.exception.BusException;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -121,14 +123,18 @@ public class RxBus {
     public void putObject(String key,Object object)
     {
         synchronized (mSparseArrOnEvent) {
-            List<Object> list = new ArrayList<>();
+            List<Object> handList = new ArrayList<>();
             if (mSparseArrOnEvent.indexOfKey(key.hashCode()) > -1) {
-                list = mSparseArrOnEvent.get(key.hashCode());
+                handList = mSparseArrOnEvent.get(key.hashCode());
+            }
+            else
+            {
+                mSparseArrOnEvent.put(key.hashCode(),handList);
             }
 
 
-            if (!list.contains(object)) {
-                list.add(object);
+            if (!handList.contains(object)) {
+                handList.add(object);
             }
         }
     }
@@ -168,7 +174,7 @@ public class RxBus {
      *
      * @param event
      */
-    public void post(Object event) {
+    public void post(final Object event) {
 
         if ( event == null)
             return;
@@ -176,26 +182,49 @@ public class RxBus {
 
         if (mSparseArrOnEvent.indexOfKey(filter.hashCode()) > -1) {//设计的 就像  广播一样 发送出来 如果没有人接受 就丢弃了
 
+            List<Object> handQueue=mSparseArrOnEvent.get(filter.hashCode());
 
-            Method[] methods=getMethods(event);
+            for(Object hand:handQueue)
+            {
+                Method[] methods=getMethods(hand);
 
-            for (Method method : methods) {
-                int modifiers = method.getModifiers();
-                if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
-                    Class<?>[] parameterTypes = method.getParameterTypes();
-                    if (parameterTypes.length == 1) {//判断参数 的个数
-                        Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
-                        if (subscribeAnnotation != null) {
-                            Class<?> eventType = parameterTypes[0];
-                            String key=eventType.getName();
-                            ThreadMode threadMode = subscribeAnnotation.threadMode();
-
-
+                for (Method method : methods) {
+                    int modifiers = method.getModifiers();
+                    if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
+                        Class<?>[] parameterTypes = method.getParameterTypes();
+                        if (parameterTypes.length == 1) {//判断参数 的个数
+                            Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
+                            if (subscribeAnnotation != null) {
+                                ThreadMode threadMode = subscribeAnnotation.threadMode();
+                                invokeSubscriber(hand,method,threadMode,event);
+                            }
                         }
                     }
                 }
             }
 
+
+
+
+
+        }
+    }
+
+
+    /**
+     * 反射 调用hand对象的 method方法 把event传递进去，以threadMode作为线程切换的依据
+     * @param hand
+     * @param method
+     * @param threadMode
+     * @param event
+     */
+    void invokeSubscriber(Object hand,Method method,ThreadMode threadMode, Object event) {
+        try {
+            method.invoke(hand, event);
+        } catch (InvocationTargetException e) {
+
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Unexpected exception", e);
         }
     }
 
