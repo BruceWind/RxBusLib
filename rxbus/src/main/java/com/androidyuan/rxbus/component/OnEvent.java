@@ -44,20 +44,20 @@ public class OnEvent {
 
         switch (getThreadMode()) {
             case BACKGROUND: {
-                return obs.observeOn(Schedulers.newThread()).subscribe(rEvent);
+                return obs.subscribeOn(Schedulers.newThread()).subscribe(rEvent);
             }
             case IO: {
-                return obs.observeOn(Schedulers.io()).subscribe(rEvent);
+                return obs.subscribeOn(Schedulers.io()).subscribe(rEvent);
             }
             case MAIN: {
-                return obs.observeOn(AndroidSchedulers.mainThread()).subscribe(rEvent);
+                return obs.subscribeOn(AndroidSchedulers.mainThread()).subscribe(rEvent);
             }
             case ASYNC: {
-                return obs.observeOn(Schedulers.computation()).subscribe(rEvent);
+                return obs.subscribeOn(Schedulers.computation()).subscribe(rEvent);
             }
             case POSTING:
             default:
-                return obs.subscribe(rEvent);
+                return obs.subscribeOn(Schedulers.immediate()).subscribe(rEvent);
         }
     }
 

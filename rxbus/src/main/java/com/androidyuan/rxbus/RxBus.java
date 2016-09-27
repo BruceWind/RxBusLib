@@ -1,11 +1,14 @@
 package com.androidyuan.rxbus;
 
+import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.SparseArray;
 import rx.Observable;
+import rx.android.schedulers.AndroidSchedulers;
 import rx.functions.Action1;
 import rx.functions.Func1;
+import rx.schedulers.Schedulers;
 
 import com.androidyuan.rxbus.component.OnEvent;
 import com.androidyuan.rxbus.component.RxSubscriberMethod;
@@ -163,55 +166,12 @@ public class RxBus {
         removeObject(obj);
     }
 
-
-
     /**
      * 不带线程切换 功能
      * action的触发会在发送的observable所在线程线程执行
      *
      * @param event
      */
-    public void post(final Object event) {
-
-        if ( event == null)
-            return;
-        String filter=event.getClass().getName();
-
-        if (mSparseArrOnEvent.indexOfKey(filter.hashCode()) > -1) {//设计的 就像  广播一样 发送出来 如果没有人接受 就丢弃了
-
-
-            List<Object> handQueue=mSparseArrOnEvent.get(filter.hashCode());
-
-
-
-
-
-            for(Object hand:handQueue)
-            {
-                Method[] methods=getMethods(hand);
-
-                for (Method method : methods) {
-                    int modifiers = method.getModifiers();
-                    if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
-                        Class<?>[] parameterTypes = method.getParameterTypes();
-                        if (parameterTypes.length == 1) {//判断参数 的个数
-                            Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
-                            if (subscribeAnnotation != null) {
-                                ThreadMode threadMode = subscribeAnnotation.threadMode();
-                                invokeSubscriber(hand,method,threadMode,event);
-                            }
-                        }
-                    }
-                }
-            }
-
-
-
-
-
-        }
-    }
-
     public void postRx(final Object event) {
 
         if ( event == null)
@@ -219,16 +179,20 @@ public class RxBus {
         String filter=event.getClass().getName();
 
         Observable.just(filter)
+                .observeOn(Schedulers.io())
+                .subscribeOn(Schedulers.immediate())
                 .concatMap(new Func1<String, Observable<Object>>() {
                     @Override
                     public Observable<Object> call(String f) {
+
+                        Log.d("RXJAVA", "Func1 is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
                         if(containKey(f)) {
                             Object[] array = new Object[mSparseArrOnEvent.get(f.hashCode()).size()];
                             mSparseArrOnEvent.get(f.hashCode()).toArray(array); // fill the array
                             return Observable.from(mSparseArrOnEvent.get(f.hashCode()));
                         }
                         else
-                            return null;
+                            return Observable.from(new Object[0]);// is return null,will crash.
                     }
                 })
                 .concatMap(new Func1<Object, Observable<RxSubscriberMethod>>() {
@@ -262,8 +226,7 @@ public class RxBus {
                     @Override
                     public void call(RxSubscriberMethod rxSubscriberMethod) {
                         Log.d("RXJAVA",rxSubscriberMethod.getEvent()+"");
-                        new OnEvent(rxSubscriberMethod)
-                                .event();
+                        new OnEvent(rxSubscriberMethod).event();
                     }
                 });
 
@@ -277,23 +240,6 @@ public class RxBus {
             return mSparseArrOnEvent.indexOfKey(key.hashCode()) > -1;
     }
 
-
-    /**
-     * 反射 调用hand对象的 method方法 把event传递进去，以threadMode作为线程切换的依据
-     * @param hand
-     * @param method
-     * @param threadMode
-     * @param event
-     */
-    void invokeSubscriber(Object hand,Method method,ThreadMode threadMode, Object event) {
-        try {
-            method.invoke(hand, event);
-        } catch (InvocationTargetException e) {
-
-        } catch (IllegalAccessException e) {
-            throw new IllegalStateException("Unexpected exception", e);
-        }
-    }
 
 
 }

@@ -15,8 +15,6 @@ import rxbusdemo.wei.model.DriverEvent;
 
 public class SecondActivity extends AppCompatActivity {
 
-    private final String filer="testfilter";
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -27,25 +25,24 @@ public class SecondActivity extends AppCompatActivity {
 
         new Thread( ()->{
 
+            RxBus.getInstance().postRx("scream3");
 
-           // RxBus.getInstance().post(new DriverEvent("scream1"));
+            RxBus.getInstance().postRx(new DriverEvent("scream1"));
         }).start();
 
-        //RxBus.getInstance().postRx(new DriverEvent("scream1"));
         RxBus.getInstance().postRx("scream2");
-        RxBus.getInstance().postRx("scream3");
     }
 
 
-    @Subscribe(threadMode = ThreadMode.BACKGROUND, sticky = true)
+    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true) //TODO not support POSTING
     public void handleEvent(String event) {
-        Log.d(TAG, "RXJAVA event info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
+        Log.d("RXJAVA", "event info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
     }
 
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
+    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)//TODO not support POSTING
     public void handle(String event) {
-        Log.d(TAG, "RXJAVA event info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
+        Log.d("RXJAVA", "event info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
     }
 
     @Override

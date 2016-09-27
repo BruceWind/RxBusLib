@@ -42,6 +42,10 @@ public class RxSubscriberMethod {
         return event+"";
     }
 
+
+    /**
+     * 反射 调用hand对象的 method方法 把event传递进去，以threadMode作为线程切换的依据
+     */
     public void invokeSubscriber() {
         try {
             method.invoke(hand, event);
