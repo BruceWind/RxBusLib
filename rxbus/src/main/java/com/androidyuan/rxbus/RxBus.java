@@ -72,31 +72,41 @@ public class RxBus {
             return;
 
 
-        Method[] methods=getMethods(subscriber);
+        Observable.just(subscriber)
+                .subscribeOn(Schedulers.computation())
+                .subscribe(new Action1<Object>() {
+                    @Override
+                    public void call(Object subs) {
 
-        for (Method method : methods) {
-            int modifiers = method.getModifiers();
-            if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
-                Class<?>[] parameterTypes = method.getParameterTypes();
-                if (parameterTypes.length == 1) {//判断参数 的个数
-                    Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
-                    if (subscribeAnnotation != null) {
-                        Class<?> eventType = parameterTypes[0];
-                        String key=eventType.getName();
-                        ThreadMode threadMode = subscribeAnnotation.threadMode();
-                        putObject(key,subscriber);
+                        Method[] methods=getMethods(subs);
+
+                        for (Method method : methods) {
+                            int modifiers = method.getModifiers();
+                            if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
+                                Class<?>[] parameterTypes = method.getParameterTypes();
+                                if (parameterTypes.length == 1) {//判断参数 的个数
+                                    Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
+                                    if (subscribeAnnotation != null) {
+                                        Class<?> eventType = parameterTypes[0];
+                                        String key=eventType.getName();
+                                        ThreadMode threadMode = subscribeAnnotation.threadMode();
+                                        putObject(key,subs);
+                                    }
+                                } else if (method.isAnnotationPresent(Subscribe.class)) {
+                                    String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+                                    throw new BusException("@Subscribe method " + methodName +
+                                            "must have exactly 1 parameter but has " + parameterTypes.length);
+                                }
+                            } else if (method.isAnnotationPresent(Subscribe.class)) {
+                                String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+                                throw new BusException(methodName +
+                                        " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
+                            }
+                        }
+
+
                     }
-                } else if (method.isAnnotationPresent(Subscribe.class)) {
-                    String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-                    throw new BusException("@Subscribe method " + methodName +
-                            "must have exactly 1 parameter but has " + parameterTypes.length);
-                }
-            } else if (method.isAnnotationPresent(Subscribe.class)) {
-                String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-                throw new BusException(methodName +
-                        " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
-            }
-        }
+                });
 
     }
 
