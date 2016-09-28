@@ -15,6 +15,8 @@
  */
 package com.androidyuan.rxbus.component;
 
+import android.util.SparseArray;
+
 import com.androidyuan.rxbus.exception.BusException;
 
 import java.lang.reflect.Method;
@@ -27,238 +29,101 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SubscriberMethodFinder {
     /*
-     * In newer class files, compilers may add methods. Those are called bridge or synthetic methods.
-     * EventBus must ignore both. There modifiers are not public but defined in the Java class file format:
+     * In newer class files, compilers may add methods. Those are called bridge or synthetic
+     * methods.
+     * EventBus must ignore both. There modifiers are not public but defined in the Java class
+     * file format:
      * http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.6-200-A.1
      */
     private static final int BRIDGE = 0x40;
     private static final int SYNTHETIC = 0x1000;
 
-    private static final int MODIFIERS_IGNORE = Modifier.ABSTRACT | Modifier.STATIC | BRIDGE | SYNTHETIC;
-    private static final Map<Class<?>, List<SubscriberMethod>> METHOD_CACHE = new ConcurrentHashMap<>();
+    private static final int MODIFIERS_IGNORE =
+            Modifier.ABSTRACT | Modifier.STATIC | BRIDGE | SYNTHETIC;
 
-    private List<SubscriberInfoIndex> subscriberInfoIndexes;
-    private final boolean strictMethodVerification;
-
-    private static final int POOL_SIZE = 4;
-    private static final FindState[] FIND_STATE_POOL = new FindState[POOL_SIZE];
-
-    public SubscriberMethodFinder(List<SubscriberInfoIndex> subscriberInfoIndexes,
-            boolean strictMethodVerification) {
-        this.subscriberInfoIndexes = subscriberInfoIndexes;
-        this.strictMethodVerification = strictMethodVerification;
-    }
-
-    public List<SubscriberMethod> findSubscriberMethods(Class<?> subscriberClass) {
-        List<SubscriberMethod> subscriberMethods = METHOD_CACHE.get(subscriberClass);
-        if (subscriberMethods != null) {
-            return subscriberMethods;
-        }
-
-
-        subscriberMethods  = findUsingReflection(subscriberClass);
-
-        if (subscriberMethods.isEmpty()) {
-            throw new BusException("Subscriber " + subscriberClass
-                    + " and its super classes have no public methods with the @Subscribe annotation");
-        } else {
-            METHOD_CACHE.put(subscriberClass, subscriberMethods);
-            return subscriberMethods;
-        }
-    }
-
-    private List<SubscriberMethod> findUsingInfo(Class<?> subscriberClass) {
-        FindState findState = prepareFindState();
-        findState.initForSubscriber(subscriberClass);
-        while (findState.clazz != null) {
-            findState.subscriberInfo = getSubscriberInfo(findState);
-            if (findState.subscriberInfo != null) {
-                SubscriberMethod[] array = findState.subscriberInfo.getSubscriberMethods();
-                for (SubscriberMethod subscriberMethod : array) {
-                    if (findState.checkAdd(subscriberMethod.method, subscriberMethod.eventType)) {
-                        findState.subscriberMethods.add(subscriberMethod);
-                    }
-                }
-            } else {
-                findUsingReflectionInSingleClass(findState);
-            }
-            findState.moveToSuperclass();
-        }
-        return getMethodsAndRelease(findState);
-    }
-
-    private List<SubscriberMethod> getMethodsAndRelease(FindState findState) {
-        List<SubscriberMethod> subscriberMethods = new ArrayList<>(findState.subscriberMethods);
-        findState.recycle();
-        synchronized (FIND_STATE_POOL) {
-            for (int i = 0; i < POOL_SIZE; i++) {
-                if (FIND_STATE_POOL[i] == null) {
-                    FIND_STATE_POOL[i] = findState;
-                    break;
-                }
-            }
-        }
-        return subscriberMethods;
-    }
-
-    private FindState prepareFindState() {
-        synchronized (FIND_STATE_POOL) {
-            for (int i = 0; i < POOL_SIZE; i++) {
-                FindState state = FIND_STATE_POOL[i];
-                if (state != null) {
-                    FIND_STATE_POOL[i] = null;
-                    return state;
-                }
-            }
-        }
-        return new FindState();
-    }
-
-    private SubscriberInfo getSubscriberInfo(FindState findState) {
-        if (findState.subscriberInfo != null && findState.subscriberInfo.getSuperSubscriberInfo() != null) {
-            SubscriberInfo superclassInfo = findState.subscriberInfo.getSuperSubscriberInfo();
-            if (findState.clazz == superclassInfo.getSubscriberClass()) {
-                return superclassInfo;
-            }
-        }
-        if (subscriberInfoIndexes != null) {
-            for (SubscriberInfoIndex index : subscriberInfoIndexes) {
-                SubscriberInfo info = index.getSubscriberInfo(findState.clazz);
-                if (info != null) {
-                    return info;
-                }
-            }
-        }
-        return null;
-    }
-
-    private List<SubscriberMethod> findUsingReflection(Class<?> subscriberClass) {
-        FindState findState = prepareFindState();
-        findState.initForSubscriber(subscriberClass);
-        while (findState.clazz != null) {
-            findUsingReflectionInSingleClass(findState);
-            findState.moveToSuperclass();
-        }
-        return getMethodsAndRelease(findState);
-    }
-
-    private void findUsingReflectionInSingleClass(FindState findState) {
-        Method[] methods;
-        try {
-            // This is faster than getMethods, especially when subscribers are fat classes like Activities
-            methods = findState.clazz.getDeclaredMethods();
-        } catch (Throwable th) {
-            // Workaround for java.lang.NoClassDefFoundError, see https://github.com/greenrobot/EventBus/issues/149
-            methods = findState.clazz.getMethods();
-            findState.skipSuperClasses = true;
-        }
-        for (Method method : methods) {
-            int modifiers = method.getModifiers();
-            if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {
-                Class<?>[] parameterTypes = method.getParameterTypes();
-                if (parameterTypes.length == 1) {
-                    Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
-                    if (subscribeAnnotation != null) {
-                        Class<?> eventType = parameterTypes[0];
-                        if (findState.checkAdd(method, eventType)) {
-                            ThreadMode threadMode = subscribeAnnotation.threadMode();
-                            findState.subscriberMethods.add(new SubscriberMethod(method, eventType, threadMode,
-                                    0, subscribeAnnotation.sticky()));
-                        }
-                    }
-                } else if (strictMethodVerification && method.isAnnotationPresent(Subscribe.class)) {
-                    String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-                    throw new BusException("@Subscribe method " + methodName +
-                            "must have exactly 1 parameter but has " + parameterTypes.length);
-                }
-            } else if (strictMethodVerification && method.isAnnotationPresent(Subscribe.class)) {
-                String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-                throw new BusException(methodName +
-                        " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
-            }
-        }
-    }
+    //由于反射中性能最弱的是 findMethod，不同的JDK版本都会比正常调用方法速度慢20倍以上， 所以这里做一个缓存，来提升性能
+    private static final SparseArray<Method[]> METHOD_CACHE = new SparseArray<>();
+    private static final int MAX_CACHE_SIZE = 100;
 
     static void clearCaches() {
         METHOD_CACHE.clear();
     }
 
-    static class FindState {
-        final List<SubscriberMethod> subscriberMethods = new ArrayList<>();
-        final Map<Class, Object> anyMethodByEventType = new HashMap<>();
-        final Map<String, Class> subscriberClassByMethodKey = new HashMap<>();
-        final StringBuilder methodKeyBuilder = new StringBuilder(128);
 
-        Class<?> subscriberClass;
-        Class<?> clazz;
-        boolean skipSuperClasses;
-        SubscriberInfo subscriberInfo;
+    /**
+     * @param subscriberCls
+     * @return  一个可订阅的 method array
+     */
+    public static Method[] findSubscriberMethods(Class<?> subscriberCls) {
 
-        void initForSubscriber(Class<?> subscriberClass) {
-            this.subscriberClass = clazz = subscriberClass;
-            skipSuperClasses = false;
-            subscriberInfo = null;
+        Method[] methods;
+
+        if (METHOD_CACHE.size() > MAX_CACHE_SIZE) {// auto clear cache
+            clearCaches();
         }
 
-        void recycle() {
-            subscriberMethods.clear();
-            anyMethodByEventType.clear();
-            subscriberClassByMethodKey.clear();
-            methodKeyBuilder.setLength(0);
-            subscriberClass = null;
-            clazz = null;
-            skipSuperClasses = false;
-            subscriberInfo = null;
+        if (subscriberCls == null) {
+            return new Method[0];
         }
 
-        boolean checkAdd(Method method, Class<?> eventType) {
-            // 2 level check: 1st level with event type only (fast), 2nd level with complete signature when required.
-            // Usually a subscriber doesn't have methods listening to the same event type.
-            Object existing = anyMethodByEventType.put(eventType, method);
-            if (existing == null) {
-                return true;
-            } else {
-                if (existing instanceof Method) {
-                    if (!checkAddWithMethodSignature((Method) existing, eventType)) {
-                        // Paranoia check
-                        throw new IllegalStateException();
+        String clsName = subscriberCls.getName();
+
+        if (METHOD_CACHE.indexOfKey(clsName.hashCode()) > -1) {
+            return METHOD_CACHE.get(clsName.hashCode());
+        } else {
+            methods = getMethods(subscriberCls);
+            if (methods == null) {
+                methods = new Method[0];
+            }
+        }
+
+        ArrayList<Method> methodList=new ArrayList<>();
+
+        for (Method method:methods)
+        {
+            int modifiers = method.getModifiers();
+            if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断修饰符
+                Class<?>[] parameterTypes = method.getParameterTypes();
+                if (parameterTypes.length == 1) {//判断参数 的个数
+                    Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
+                    if (subscribeAnnotation != null) {
+//                        Class<?> eventType = parameterTypes[0];
+//                        String key=eventType.getName();
+                        methodList.add(method);
                     }
-                    // Put any non-Method object to "consume" the existing Method
-                    anyMethodByEventType.put(eventType, this);
+                } else if (method.isAnnotationPresent(Subscribe.class)) {
+                    String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+//                    throw new BusException("@Subscribe method " + methodName +
+//                            "must have exactly 1 parameter but has " + parameterTypes.length);
                 }
-                return checkAddWithMethodSignature(method, eventType);
+            } else if (method.isAnnotationPresent(Subscribe.class)) {
+                String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+//                throw new BusException(methodName +
+//                        " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
             }
         }
 
-        private boolean checkAddWithMethodSignature(Method method, Class<?> eventType) {
-            methodKeyBuilder.setLength(0);
-            methodKeyBuilder.append(method.getName());
-            methodKeyBuilder.append('>').append(eventType.getName());
+        return  methodList.toArray(new Method[0]);
+    }
 
-            String methodKey = methodKeyBuilder.toString();
-            Class<?> methodClass = method.getDeclaringClass();
-            Class<?> methodClassOld = subscriberClassByMethodKey.put(methodKey, methodClass);
-            if (methodClassOld == null || methodClassOld.isAssignableFrom(methodClass)) {
-                // Only add if not already found in a sub class
-                return true;
-            } else {
-                // Revert the put, old class is further down the class hierarchy
-                subscriberClassByMethodKey.put(methodKey, methodClassOld);
-                return false;
-            }
+
+    public static Method[] getMethods(final Object subscriber) {
+
+        if (subscriber == null) {
+            return new Method[0];
         }
 
-        void moveToSuperclass() {
-            if (skipSuperClasses) {
-                clazz = null;
-            } else {
-                clazz = clazz.getSuperclass();
-                String clazzName = clazz.getName();
-                /** Skip system classes, this just degrades performance. */
-                if (clazzName.startsWith("java.") || clazzName.startsWith("javax.") || clazzName.startsWith("android.")) {
-                    clazz = null;
-                }
-            }
+        Class<?> subscriberClass = subscriber.getClass();
+
+        Method[] methods;
+        try {
+            // This is faster than getMethods, especially when subscribers are fat classes like
+            // Activities
+            return subscriberClass.getDeclaredMethods();
+        } catch (Throwable th) {
+            // Workaround for java.lang.NoClassDefFoundError, see https://github
+            // .com/greenrobot/EventBus/issues/149
+            return subscriberClass.getMethods();
         }
     }
 

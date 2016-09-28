@@ -18,7 +18,7 @@ package com.androidyuan.rxbus.component;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-/** Used internally by EventBus and generated subscriber indexes. */
+/** Used internally by RxBus and generated subscriber indexes. */
 public class RxSubscriberMethod {
 
     final Method method;

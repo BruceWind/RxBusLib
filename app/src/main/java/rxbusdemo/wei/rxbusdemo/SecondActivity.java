@@ -1,7 +1,5 @@
 package rxbusdemo.wei.rxbusdemo;
 
-import static android.content.ContentValues.TAG;
-
 import android.os.Bundle;
 import android.os.Looper;
 import android.support.v7.app.AppCompatActivity;
@@ -25,22 +23,22 @@ public class SecondActivity extends AppCompatActivity {
 
         new Thread( ()->{
 
-            RxBus.getInstance().postRx("scream3");
+            RxBus.getInstance().post("scream3");
 
-            RxBus.getInstance().postRx(new DriverEvent("scream1"));
+            RxBus.getInstance().post(new DriverEvent("scream1"));
         }).start();
 
-        RxBus.getInstance().postRx("scream2");
+        RxBus.getInstance().post("scream2");
     }
 
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true) //TODO not support POSTING
+    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true) //TODO support POSTING
     public void handleEvent(String event) {
         Log.d("RXJAVA", "event info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
     }
 
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)//TODO not support POSTING
+    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)//TODO support POSTING
     public void handle(String event) {
         Log.d("RXJAVA", "event info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
     }

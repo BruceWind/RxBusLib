@@ -30,10 +30,12 @@ public class OnEvent {
     }
 
     public Subscription event() {
-        Observable obs=Observable.just(mRxSubscriberMethod.event);
 
         if (mRxSubscriberMethod == null)//抛出异常
             throw new REventIsNullException();
+
+
+        Observable obs=Observable.just(mRxSubscriberMethod.event);
 
         REvent rEvent=new REvent() {
             @Override
