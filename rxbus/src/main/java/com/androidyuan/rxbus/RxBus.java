@@ -241,7 +241,7 @@ public class RxBus {
                             return Observable.from(listSubs);
                         }
 
-                        Method[] methods=getMethods(hand);
+                        Method[] methods=SubscriberMethodFinder.getMethods(hand);
 
                         for (Method method : methods) {
                             int modifiers = method.getModifiers();
