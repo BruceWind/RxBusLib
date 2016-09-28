@@ -51,27 +51,26 @@ public class RxBus {
     //use SparseArray,because is high performance
     SparseArray<List<Object>> mSparseArrOnEvent;
 
-    RxBus(EventBusBuilder builder) {
+    RxBus() {
 
         mSparseArrOnEvent = new SparseArray<>();
-        subscriberMethodFinder = new SubscriberMethodFinder(builder.subscriberInfoIndexes,
-                builder.strictMethodVerification);
+        subscriberMethodFinder=new SubscriberMethodFinder();
     }
 
 
     public static RxBus getInstance() {
 
         if (instance == null) {
-            instance = new EventBusBuilder().build();
+            instance = new RxBus();
         }
         return instance;
     }
-
 
     public void register(final Object subscriber) {
 
         if (subscriber==null)
             return;
+
 
         Method[] methods=getMethods(subscriber);
 
@@ -101,23 +100,53 @@ public class RxBus {
 
     }
 
-    private Method[] getMethods(final Object subscriber)
-    {
 
-        if (subscriber==null)
-            return null;
+//
+//    public void register(final Object subscriber) {
+//
+//        if (subscriber==null)
+//            return;
+//
+//        Observable.just(subscriber)
+//                .observeOn(Schedulers.io())
+//                .concatMap(new Func1<Object, Observable<Method>>() {
+//                    @Override
+//                    public Observable<Method> call(Object subs) {
+//
+//                        return Observable.from(
+//                                getMethods(subs.getClass())
+//                        );
+//                    }
+//                })
+//                .subscribe(new Action1<Method>() {
+//                    @Override
+//                    public void call(Method method) {
+//
+//                        int modifiers = method.getModifiers();
+//                        if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
+//                            Class<?>[] parameterTypes = method.getParameterTypes();
+//                            if (parameterTypes.length == 1) {//判断参数 的个数
+//                                Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
+//                                if (subscribeAnnotation != null) {
+//                                    Class<?> eventType = parameterTypes[0];
+//                                    String key=eventType.getName();
+//                                    putObject(key,subscriber);
+//                                }
+//                            } else if (method.isAnnotationPresent(Subscribe.class)) {
+//                                String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+//                                throw new BusException("@Subscribe method " + methodName +
+//                                        "must have exactly 1 parameter but has " + parameterTypes.length);
+//                            }
+//                        } else if (method.isAnnotationPresent(Subscribe.class)) {
+//                            String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+//                            throw new BusException(methodName +
+//                                    " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
+//                        }
+//                    }
+//                });
+//
+//    }
 
-        Class<?> subscriberClass = subscriber.getClass();
-
-        Method[] methods;
-        try {
-            // This is faster than getMethods, especially when subscribers are fat classes like Activities
-            return subscriberClass.getDeclaredMethods();
-        } catch (Throwable th) {
-            // Workaround for java.lang.NoClassDefFoundError, see https://github.com/greenrobot/EventBus/issues/149
-            return subscriberClass.getMethods();
-        }
-    }
 
     public void putObject(String key,Object object)
     {
@@ -169,10 +198,10 @@ public class RxBus {
     /**
      * 不带线程切换 功能
      * action的触发会在发送的observable所在线程线程执行
-     *
+     *  这里使用lambda更佳，但是作为一个 lib ，不应该使用 lambda
      * @param event
      */
-    public void postRx(final Object event) {
+    public void post(final Object event) {
 
         if ( event == null)
             return;
@@ -184,15 +213,13 @@ public class RxBus {
                 .concatMap(new Func1<String, Observable<Object>>() {
                     @Override
                     public Observable<Object> call(String f) {
-
-                        Log.d("RXJAVA", "Func1 is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
                         if(containKey(f)) {
                             Object[] array = new Object[mSparseArrOnEvent.get(f.hashCode()).size()];
                             mSparseArrOnEvent.get(f.hashCode()).toArray(array); // fill the array
                             return Observable.from(mSparseArrOnEvent.get(f.hashCode()));
                         }
                         else
-                            return Observable.from(new Object[0]);// is return null,will crash.
+                            return Observable.from(new Object[0]);// if return null,will crash.
                     }
                 })
                 .concatMap(new Func1<Object, Observable<RxSubscriberMethod>>() {
@@ -225,7 +252,6 @@ public class RxBus {
                 .subscribe(new Action1<RxSubscriberMethod>() {
                     @Override
                     public void call(RxSubscriberMethod rxSubscriberMethod) {
-                        Log.d("RXJAVA",rxSubscriberMethod.getEvent()+"");
                         new OnEvent(rxSubscriberMethod).event();
                     }
                 });
@@ -240,6 +266,25 @@ public class RxBus {
             return mSparseArrOnEvent.indexOfKey(key.hashCode()) > -1;
     }
 
+
+
+    private Method[] getMethods(final Object subscriber)
+    {
+
+        if (subscriber==null)
+            return null;
+
+        Class<?> subscriberClass = subscriber.getClass();
+
+        Method[] methods;
+        try {
+            // This is faster than getMethods, especially when subscribers are fat classes like Activities
+            return subscriberClass.getDeclaredMethods();
+        } catch (Throwable th) {
+            // Workaround for java.lang.NoClassDefFoundError, see https://github.com/greenrobot/EventBus/issues/149
+            return subscriberClass.getMethods();
+        }
+    }
 
 
 }
