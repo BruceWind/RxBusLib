@@ -27,20 +27,20 @@ public class SecondActivity extends AppCompatActivity {
 
             RxBus.getInstance().post(new DriverEvent("scream1"));
         }).start();
-
         RxBus.getInstance().post("scream2");
+
     }
 
 
     @Subscribe(threadMode = ThreadMode.MAIN, sticky = true) //TODO support POSTING
     public void handleEvent(String event) {
-        Log.d("RXJAVA", "event info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
+        Log.d("RXJAVA", "handleEvent info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
     }
 
 
     @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)//TODO support POSTING
     public void handle(String event) {
-        Log.d("RXJAVA", "event info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
+        Log.d("RXJAVA", "handle info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
     }
 
     @Override

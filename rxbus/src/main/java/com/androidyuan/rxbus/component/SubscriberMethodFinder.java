@@ -55,7 +55,7 @@ public class SubscriberMethodFinder {
      * @param subscriber
      * @return  一个可订阅的 method array
      */
-    public Method[] getMethods(final Object subscriber) {
+    public Method[] findSubscriberMethods(final Object subscriber) {
 
         if (subscriber == null) {
             return new Method[0];
@@ -93,7 +93,6 @@ public class SubscriberMethodFinder {
                 if (parameterTypes.length == 1) {//判断参数 的个数
                     Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
                     if (subscribeAnnotation != null) {
-                        Class<?> eventType = parameterTypes[0];
                         methodList.add(method);
                         Log.d("Method",""+method.getName());
                     }
