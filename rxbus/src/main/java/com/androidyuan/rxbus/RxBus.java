@@ -143,6 +143,7 @@ public class RxBus {
         String filter = event.getClass().getName();
 
         Observable.just(filter)
+                .subscribeOn(Schedulers.computation())
                 .concatMap(new Func1<String, Observable<Object>>() {
                     @Override
                     public Observable<Object> call(String f) {
@@ -177,9 +178,11 @@ public class RxBus {
                         return Observable.from(listSubs);
                     }
                 })
+                .observeOn(Schedulers.immediate())
                 .subscribe(new Action1<RxSubscriberMethod>() {
                     @Override
                     public void call(RxSubscriberMethod rxSubscriberMethod) {
+                        Log.d("RXJAVA", "new event is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
                         new OnEvent(rxSubscriberMethod).event();
                     }
                 });
