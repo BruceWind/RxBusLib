@@ -1,5 +1,6 @@
 package com.androidyuan.rxbus;
 
+import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
 import android.util.Log;
@@ -141,9 +142,14 @@ public class RxBus {
             return;
         }
         String filter = event.getClass().getName();
+        Handler handler = null;
+        if(Looper.myLooper()!=null){
+            handler = new Handler(Looper.myLooper());
+        }
+        final Handler final_handler=handler;
 
         Observable.just(filter)
-                .subscribeOn(Schedulers.computation())
+                .observeOn(Schedulers.computation())
                 .concatMap(new Func1<String, Observable<Object>>() {
                     @Override
                     public Observable<Object> call(String f) {
@@ -178,12 +184,23 @@ public class RxBus {
                         return Observable.from(listSubs);
                     }
                 })
-                .observeOn(Schedulers.immediate())
                 .subscribe(new Action1<RxSubscriberMethod>() {
                     @Override
-                    public void call(RxSubscriberMethod rxSubscriberMethod) {
+                    public void call(final RxSubscriberMethod rxSubscriberMethod) {
                         Log.d("RXJAVA", "new event is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
-                        new OnEvent(rxSubscriberMethod).event();
+                        if(final_handler!=null) {
+                            final_handler.post(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    new OnEvent(rxSubscriberMethod).event();
+                                }
+                            });
+                        }
+                        else
+                        {
+                            new OnEvent(rxSubscriberMethod).event();
+                        }
                     }
                 });
 
