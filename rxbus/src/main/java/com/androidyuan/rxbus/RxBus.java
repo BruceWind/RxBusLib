@@ -71,39 +71,65 @@ public class RxBus {
         if (subscriber==null)
             return;
 
-
         Observable.just(subscriber)
-                .subscribeOn(Schedulers.computation())
-                .subscribe(new Action1<Object>() {
+                .observeOn(Schedulers.computation())
+                .concatMap(new Func1<Object, Observable<Method>>() {
                     @Override
-                    public void call(Object subs) {
+                    public Observable<Method> call(Object subs) {
 
-                        Method[] methods=getMethods(subs);
+                        Method[] methods=subscriberMethodFinder.getMethods(subs);
 
-                        for (Method method : methods) {
-                            int modifiers = method.getModifiers();
-                            if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
-                                Class<?>[] parameterTypes = method.getParameterTypes();
-                                if (parameterTypes.length == 1) {//判断参数 的个数
-                                    Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
-                                    if (subscribeAnnotation != null) {
-                                        Class<?> eventType = parameterTypes[0];
-                                        String key=eventType.getName();
-                                        ThreadMode threadMode = subscribeAnnotation.threadMode();
-                                        putObject(key,subs);
-                                    }
-                                } else if (method.isAnnotationPresent(Subscribe.class)) {
-                                    String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-                                    throw new BusException("@Subscribe method " + methodName +
-                                            "must have exactly 1 parameter but has " + parameterTypes.length);
+//                        for (Method method : methods) {
+//                            int modifiers = method.getModifiers();
+//                            if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
+//                                Class<?>[] parameterTypes = method.getParameterTypes();
+//                                if (parameterTypes.length == 1) {//判断参数 的个数
+//                                    Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
+//                                    if (subscribeAnnotation != null) {
+//                                        Class<?> eventType = parameterTypes[0];
+//                                        String key=eventType.getName();
+//                                        ThreadMode threadMode = subscribeAnnotation.threadMode();
+//                                        putObject(key,subs);
+//                                    }
+//                                } else if (method.isAnnotationPresent(Subscribe.class)) {
+//                                    String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+//                                    throw new BusException("@Subscribe method " + methodName +
+//                                            "must have exactly 1 parameter but has " + parameterTypes.length);
+//                                }
+//                            } else if (method.isAnnotationPresent(Subscribe.class)) {
+//                                String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+//                                throw new BusException(methodName +
+//                                        " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
+//                            }
+//                        }
+                        return Observable.from(methods);
+                    }
+                })
+                .subscribe(new Action1<Method>() {
+                    @Override
+                    public void call(Method method) {
+
+                        int modifiers = method.getModifiers();
+                        if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
+                            Class<?>[] parameterTypes = method.getParameterTypes();
+                            if (parameterTypes.length == 1) {//判断参数 的个数
+                                Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
+                                if (subscribeAnnotation != null) {
+                                    Class<?> eventType = parameterTypes[0];
+                                    String key=eventType.getName();
+                                    ThreadMode threadMode = subscribeAnnotation.threadMode();
+                                    putObject(key,subscriber);
                                 }
                             } else if (method.isAnnotationPresent(Subscribe.class)) {
                                 String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-                                throw new BusException(methodName +
-                                        " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
+                                throw new BusException("@Subscribe method " + methodName +
+                                        "must have exactly 1 parameter but has " + parameterTypes.length);
                             }
+                        } else if (method.isAnnotationPresent(Subscribe.class)) {
+                            String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+                            throw new BusException(methodName +
+                                    " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
                         }
-
 
                     }
                 });
