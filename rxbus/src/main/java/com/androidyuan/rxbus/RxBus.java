@@ -81,7 +81,6 @@ public class RxBus {
                         if (subscribeAnnotation != null) {
                             Class<?> eventType = parameterTypes[0];
                             String key = eventType.getName();
-                            ThreadMode threadMode = subscribeAnnotation.threadMode();
                             putObject(key, subscriber);
                         }
                     }
@@ -144,8 +143,6 @@ public class RxBus {
         String filter = event.getClass().getName();
 
         Observable.just(filter)
-                .observeOn(Schedulers.io())
-                .subscribeOn(Schedulers.immediate())
                 .concatMap(new Func1<String, Observable<Object>>() {
                     @Override
                     public Observable<Object> call(String f) {

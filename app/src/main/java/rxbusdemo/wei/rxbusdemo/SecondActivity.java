@@ -32,13 +32,13 @@ public class SecondActivity extends AppCompatActivity {
     }
 
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true) //TODO support POSTING
+    @Subscribe(threadMode = ThreadMode.POSTING, sticky = true)
     public void handleEvent(String event) {
         Log.d("RXJAVA", "handleEvent info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
     }
 
 
-    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)//TODO support POSTING
+    @Subscribe(threadMode = ThreadMode.POSTING, sticky = true)
     public void handle(String event) {
         Log.d("RXJAVA", "handle info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
     }
