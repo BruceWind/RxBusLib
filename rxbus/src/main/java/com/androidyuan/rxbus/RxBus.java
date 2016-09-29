@@ -17,11 +17,7 @@ import com.androidyuan.rxbus.component.RxSubscriberMethod;
 import com.androidyuan.rxbus.component.Subscribe;
 import com.androidyuan.rxbus.component.SubscriberMethodFinder;
 import com.androidyuan.rxbus.component.ThreadMode;
-import com.androidyuan.rxbus.exception.BusException;
-
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,7 +53,7 @@ public class RxBus {
     }
 
     /**
-     * 这个没有开线程去处理 是保持同步性 避免异步 register带来的问题 
+     * 这个没有开线程去处理 是保持同步性 避免异步 register带来的问题
      * @param subscriber
      */
     public void register(final Object subscriber) {
@@ -153,7 +149,7 @@ public class RxBus {
         final Handler final_handler=handler;
 
         Observable.just(filter)
-                .observeOn(Schedulers.computation())
+                .observeOn(Schedulers.trampoline())
                 .concatMap(new Func1<String, Observable<Object>>() {
                     @Override
                     public Observable<Object> call(String f) {
