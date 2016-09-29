@@ -9,6 +9,12 @@ import com.androidyuan.rxbus.RxBus;
 import com.androidyuan.rxbus.component.Subscribe;
 import com.androidyuan.rxbus.component.ThreadMode;
 
+import rx.Observable;
+import rx.Scheduler;
+import rx.android.schedulers.AndroidSchedulers;
+import rx.functions.Action1;
+import rx.functions.Func1;
+import rx.schedulers.Schedulers;
 import rxbusdemo.wei.model.DriverEvent;
 
 public class SecondActivity extends AppCompatActivity {
@@ -21,7 +27,7 @@ public class SecondActivity extends AppCompatActivity {
 
         RxBus.getInstance().register(this);
 
-        new Thread( ()->{
+        new Thread(() -> {
 
             RxBus.getInstance().post("scream3");
 
@@ -32,15 +38,18 @@ public class SecondActivity extends AppCompatActivity {
     }
 
 
-    @Subscribe(threadMode = ThreadMode.POSTING, sticky = true)
+    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
     public void handleEvent(String event) {
-        Log.d("RXJAVA", "handleEvent info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
+        Log.d("RXJAVA",
+                "handleEvent info = " + event + ", is MainThread : " + (Looper.getMainLooper()
+                        == Looper.myLooper()));
     }
 
 
-    @Subscribe(threadMode = ThreadMode.POSTING, sticky = true)
+    @Subscribe(threadMode = ThreadMode.MAIN, sticky = true)
     public void handle(String event) {
-        Log.d("RXJAVA", "handle info = "+event+", is MainThread : "+(Looper.getMainLooper()==Looper.myLooper()));
+        Log.d("RXJAVA", "handle info = " + event + ", is MainThread : " + (Looper.getMainLooper()
+                == Looper.myLooper()));
     }
 
     @Override

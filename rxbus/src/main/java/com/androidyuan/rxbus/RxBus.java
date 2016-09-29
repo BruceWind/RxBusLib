@@ -56,6 +56,10 @@ public class RxBus {
         return instance;
     }
 
+    /**
+     * 这个没有开线程去处理 是保持同步性 避免异步 register带来的问题 
+     * @param subscriber
+     */
     public void register(final Object subscriber) {
 
         if (subscriber == null) {
