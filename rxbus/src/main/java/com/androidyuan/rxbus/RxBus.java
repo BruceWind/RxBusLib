@@ -37,16 +37,14 @@ import java.util.List;
  */
 public class RxBus {
 
-    static RxBus instance;
-
-
-
-    private final SubscriberMethodFinder subscriberMethodFinder;
 
     private static final int BRIDGE = 0x40;
     private static final int SYNTHETIC = 0x1000;
     private static final int MODIFIERS_IGNORE = Modifier.ABSTRACT | Modifier.STATIC | BRIDGE | SYNTHETIC;
 
+    static RxBus instance;
+
+    private final SubscriberMethodFinder subscriberMethodFinder;
 
     //use SparseArray,because is high performance
     SparseArray<List<Object>> mSparseArrOnEvent;
@@ -79,29 +77,6 @@ public class RxBus {
 
                         Method[] methods=subscriberMethodFinder.getMethods(subs);
 
-//                        for (Method method : methods) {
-//                            int modifiers = method.getModifiers();
-//                            if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
-//                                Class<?>[] parameterTypes = method.getParameterTypes();
-//                                if (parameterTypes.length == 1) {//判断参数 的个数
-//                                    Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
-//                                    if (subscribeAnnotation != null) {
-//                                        Class<?> eventType = parameterTypes[0];
-//                                        String key=eventType.getName();
-//                                        ThreadMode threadMode = subscribeAnnotation.threadMode();
-//                                        putObject(key,subs);
-//                                    }
-//                                } else if (method.isAnnotationPresent(Subscribe.class)) {
-//                                    String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-//                                    throw new BusException("@Subscribe method " + methodName +
-//                                            "must have exactly 1 parameter but has " + parameterTypes.length);
-//                                }
-//                            } else if (method.isAnnotationPresent(Subscribe.class)) {
-//                                String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-//                                throw new BusException(methodName +
-//                                        " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
-//                            }
-//                        }
                         return Observable.from(methods);
                     }
                 })
@@ -137,53 +112,6 @@ public class RxBus {
     }
 
 
-//
-//    public void register(final Object subscriber) {
-//
-//        if (subscriber==null)
-//            return;
-//
-//        Observable.just(subscriber)
-//                .observeOn(Schedulers.io())
-//                .concatMap(new Func1<Object, Observable<Method>>() {
-//                    @Override
-//                    public Observable<Method> call(Object subs) {
-//
-//                        return Observable.from(
-//                                getMethods(subs.getClass())
-//                        );
-//                    }
-//                })
-//                .subscribe(new Action1<Method>() {
-//                    @Override
-//                    public void call(Method method) {
-//
-//                        int modifiers = method.getModifiers();
-//                        if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
-//                            Class<?>[] parameterTypes = method.getParameterTypes();
-//                            if (parameterTypes.length == 1) {//判断参数 的个数
-//                                Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
-//                                if (subscribeAnnotation != null) {
-//                                    Class<?> eventType = parameterTypes[0];
-//                                    String key=eventType.getName();
-//                                    putObject(key,subscriber);
-//                                }
-//                            } else if (method.isAnnotationPresent(Subscribe.class)) {
-//                                String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-//                                throw new BusException("@Subscribe method " + methodName +
-//                                        "must have exactly 1 parameter but has " + parameterTypes.length);
-//                            }
-//                        } else if (method.isAnnotationPresent(Subscribe.class)) {
-//                            String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-//                            throw new BusException(methodName +
-//                                    " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
-//                        }
-//                    }
-//                });
-//
-//    }
-
-
     public void putObject(String key,Object object)
     {
         synchronized (mSparseArrOnEvent) {
@@ -195,7 +123,6 @@ public class RxBus {
             {
                 mSparseArrOnEvent.put(key.hashCode(),handList);
             }
-
 
             if (!handList.contains(object)) {
                 handList.add(object);
@@ -267,7 +194,7 @@ public class RxBus {
                             return Observable.from(listSubs);
                         }
 
-                        Method[] methods=SubscriberMethodFinder.getMethods(hand);
+                        Method[] methods=subscriberMethodFinder.getMethods(hand);
 
                         for (Method method : methods) {
                             int modifiers = method.getModifiers();
@@ -301,26 +228,4 @@ public class RxBus {
         else
             return mSparseArrOnEvent.indexOfKey(key.hashCode()) > -1;
     }
-
-
-
-    private Method[] getMethods(final Object subscriber)
-    {
-
-        if (subscriber==null)
-            return null;
-
-        Class<?> subscriberClass = subscriber.getClass();
-
-        Method[] methods;
-        try {
-            // This is faster than getMethods, especially when subscribers are fat classes like Activities
-            return subscriberClass.getDeclaredMethods();
-        } catch (Throwable th) {
-            // Workaround for java.lang.NoClassDefFoundError, see https://github.com/greenrobot/EventBus/issues/149
-            return subscriberClass.getMethods();
-        }
-    }
-
-
 }

@@ -15,6 +15,7 @@
  */
 package com.androidyuan.rxbus.component;
 
+import android.util.Log;
 import android.util.SparseArray;
 
 import com.androidyuan.rxbus.exception.BusException;
@@ -22,6 +23,7 @@ import com.androidyuan.rxbus.exception.BusException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,11 +37,10 @@ public class SubscriberMethodFinder {
      * file format:
      * http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.6-200-A.1
      */
+
     private static final int BRIDGE = 0x40;
     private static final int SYNTHETIC = 0x1000;
-
-    private static final int MODIFIERS_IGNORE =
-            Modifier.ABSTRACT | Modifier.STATIC | BRIDGE | SYNTHETIC;
+    private static final int MODIFIERS_IGNORE = Modifier.ABSTRACT | Modifier.STATIC | BRIDGE | SYNTHETIC;
 
     //由于反射中性能最弱的是 findMethod，不同的JDK版本都会比正常调用方法速度慢20倍以上， 所以这里做一个缓存，来提升性能
     private static final SparseArray<Method[]> METHOD_CACHE = new SparseArray<>();
@@ -51,67 +52,20 @@ public class SubscriberMethodFinder {
 
 
     /**
-     * @param subscriberCls
+     * @param subscriber
      * @return  一个可订阅的 method array
      */
-    public static Method[] findSubscriberMethods(Class<?> subscriberCls) {
-
-        Method[] methods;
-
-        if (METHOD_CACHE.size() > MAX_CACHE_SIZE) {// auto clear cache
-            clearCaches();
-        }
-
-        if (subscriberCls == null) {
-            return new Method[0];
-        }
-
-        String clsName = subscriberCls.getName();
-
-        if (METHOD_CACHE.indexOfKey(clsName.hashCode()) > -1) {
-            return METHOD_CACHE.get(clsName.hashCode());
-        } else {
-            methods = getMethods(subscriberCls);
-            if (methods == null) {
-                methods = new Method[0];
-            }
-        }
-
-        ArrayList<Method> methodList=new ArrayList<>();
-
-        for (Method method:methods)
-        {
-            int modifiers = method.getModifiers();
-            if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断修饰符
-                Class<?>[] parameterTypes = method.getParameterTypes();
-                if (parameterTypes.length == 1) {//判断参数 的个数
-                    Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
-                    if (subscribeAnnotation != null) {
-//                        Class<?> eventType = parameterTypes[0];
-//                        String key=eventType.getName();
-                        methodList.add(method);
-                    }
-                } else if (method.isAnnotationPresent(Subscribe.class)) {
-                    String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-//                    throw new BusException("@Subscribe method " + methodName +
-//                            "must have exactly 1 parameter but has " + parameterTypes.length);
-                }
-            } else if (method.isAnnotationPresent(Subscribe.class)) {
-                String methodName = method.getDeclaringClass().getName() + "." + method.getName();
-//                throw new BusException(methodName +
-//                        " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
-            }
-        }
-
-        return  methodList.toArray(new Method[0]);
-    }
-
-
-    public static Method[] getMethods(final Object subscriber) {
+    public Method[] getMethods(final Object subscriber) {
 
         if (subscriber == null) {
             return new Method[0];
         }
+
+        if(containKey(subscriber))
+        {
+            return METHOD_CACHE.get(subscriber.getClass().getName().hashCode());
+        }
+
 
         Class<?> subscriberClass = subscriber.getClass();
 
@@ -119,12 +73,54 @@ public class SubscriberMethodFinder {
         try {
             // This is faster than getMethods, especially when subscribers are fat classes like
             // Activities
-            return subscriberClass.getDeclaredMethods();
+            methods =  subscriberClass.getDeclaredMethods();
         } catch (Throwable th) {
             // Workaround for java.lang.NoClassDefFoundError, see https://github
             // .com/greenrobot/EventBus/issues/149
-            return subscriberClass.getMethods();
+            methods = subscriberClass.getMethods();
         }
+
+        if(METHOD_CACHE.size()>MAX_CACHE_SIZE) {
+            clearCaches();
+        }
+
+        List<Method> methodList=new ArrayList<>();
+        for(Method method:methods)
+        {
+            int modifiers = method.getModifiers();
+            if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {//判断是否是pubulic
+                Class<?>[] parameterTypes = method.getParameterTypes();
+                if (parameterTypes.length == 1) {//判断参数 的个数
+                    Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
+                    if (subscribeAnnotation != null) {
+                        Class<?> eventType = parameterTypes[0];
+                        methodList.add(method);
+                        Log.d("Method",""+method.getName());
+                    }
+                } else if (method.isAnnotationPresent(Subscribe.class)) {
+                    String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+                    throw new BusException("@Subscribe method " + methodName +
+                            "must have exactly 1 parameter but has " + parameterTypes.length);
+                }
+            } else if (method.isAnnotationPresent(Subscribe.class)) {
+                String methodName = method.getDeclaringClass().getName() + "." + method.getName();
+                throw new BusException(methodName +
+                        " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
+            }
+        }
+
+        methods=new Method[methodList.size()];
+        methodList.toArray(methods);
+
+        METHOD_CACHE.put(subscriber.getClass().getName().hashCode(),methods);
+        return methods;
+    }
+
+    private boolean containKey(Object obj)
+    {
+        if(obj==null)
+            return false;
+        return METHOD_CACHE.indexOfKey(obj.getClass().getName().hashCode())>-1;
     }
 
 }
