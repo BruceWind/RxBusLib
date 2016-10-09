@@ -177,8 +177,13 @@ public class RxBus {
                             Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
                             if (subscribeAnnotation != null) {
                                 ThreadMode threadMode = subscribeAnnotation.threadMode();
-                                listSubs.add(
-                                        new RxSubscriberMethod(hand, method, event, threadMode));
+
+                                //检查对应的参数类型是否一致
+                                Class[]clss=method.getParameterTypes();
+                                if(clss[0].equals(event.getClass())) {
+                                    listSubs.add(
+                                            new RxSubscriberMethod(hand, method, event, threadMode));
+                                }
                             }
                         }
                         return Observable.from(listSubs);
